@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { getFirestore, getDocs, collection, addDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { app, auth } from "../../services/firebaseConfig";
-import "./styles.css"; // Importe seu arquivo CSS para estilização
+import "./styles.css";
 
 export const Home = () => {
     const [name, setName] = useState("");
@@ -16,14 +16,17 @@ export const Home = () => {
     const userCollectionRef = collection(db, "users");
 
     async function criarUser() {
-        // Cria o usuário no Firestore
+        if (!password) {
+            console.error("Senha não preenchida");
+            return;
+        }
+
         const user = await addDoc(userCollectionRef, {
             name,
             email,
         });
         console.log(user);
 
-        // Cria o usuário no Firebase Authentication
         try {
             await createUserWithEmailAndPassword(auth, email, password);
             console.log("Usuário criado no Firebase Authentication com sucesso!");
@@ -76,7 +79,7 @@ export const Home = () => {
     }
 
     return (
-        <div className="container"> {/* Container para o vídeo de fundo */}
+        <div className="container">
             <div className="content-container">
                 <div className="text-title">
                     <h2>Bem-vindo à BombinhaJS</h2>
