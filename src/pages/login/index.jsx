@@ -3,27 +3,46 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../services/firebaseConfig";
 import "./styles.css";
+import greenForestVideo from "../../assets/green-forest.mp4";
 
 export function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [errorMessage, setErrorMessage] = useState(""); // Estado para armazenar mensagens de erro
     const navigate = useNavigate();
 
     function handleSignIn(e) {
         e.preventDefault();
-        signInWithEmailAndPassword(auth, email, password) // Chama signInWithEmailAndPassword com email e senha
+        signInWithEmailAndPassword(auth, email, password)
             .then((userCredential) => {
                 const user = userCredential.user;
                 console.log("Usuário logado:", user);
                 navigate("/home");
             })
             .catch((error) => {
+                // Verifica o código de erro retornado pelo Firebase Auth
+                switch (error.code) {
+                    case "auth/invalid-email":
+                        setErrorMessage("Email incorreto.");
+                        break;
+                    case "auth/user-not-found":
+                        setErrorMessage("Usuário não encontrado.");
+                        break;
+                    case "auth/wrong-password":
+                        setErrorMessage("Senha incorreta.");
+                        break;
+                    default:
+                        setErrorMessage("Email e/ou senha incorretos.");
+                }
                 console.error("Erro ao fazer login:", error);
             });
     }
 
     return (
         <div className="container">
+            <video autoPlay loop muted className="background-video">
+                <source src={greenForestVideo} type="video/mp4" />
+            </video>
             <div className="container-login">
                 <div className="wrap-login">
                     <form className="login-form">
@@ -52,6 +71,8 @@ export function Login() {
                             />
                             <span className="focus-input" data-placeholder="Password"></span>
                         </div>
+
+                        {errorMessage && <p className="error-message">{errorMessage}</p>} {/* Exibe mensagem de erro */}
 
                         <div className="container-login-form-btn">
                             <button className="login-form-btn" onClick={handleSignIn}>Login</button>

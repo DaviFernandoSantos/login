@@ -22,12 +22,11 @@ body, html {
   align-items: center;
   justify-content: center;
   padding: 15px;
-  background-color: #103519;;
 }
 
 .wrap-login {
   width: 390px;
-  background-color: #000;
+  background-color: #000000ad;
   border-radius: 10px;
   overflow: hidden;
   padding: 77px 55px 33px 55px;
@@ -160,15 +159,16 @@ body, html {
   align-items: center;
   width: 100%;
   height: 50px;
-  background: #6a7dfe;
-  background: -webkit-linear-gradient(to left, #21d4fd, #b721ff);
-  background: -o-linear-gradient(to left, #21d4fd, #b721ff);
-  background: -moz-linear-gradient(to left, #21d4fd, #b721ff);
-  background: linear-gradient(to left, #21d4fd, #b721ff);
+  background: linear-gradient(to left, #040e07c2, #3c8c3f6e);
+  cursor: pointer;
+  margin: 13px 0 13px 5px;
+  border: 1px solid rgb(255, 255, 255);
 }
 
-.login-form-btn:hover {
+.login-form-btn:active {
   cursor: pointer;
+  background: linear-gradient(to left, #00ff95c2, #704d006e);
+  border: 1px solid #4dffa3;
 }
 
 .text-center {
