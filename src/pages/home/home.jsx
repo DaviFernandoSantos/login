@@ -78,7 +78,9 @@ export const Home = () => {
     return (
         <div className="container"> {/* Container para o vídeo de fundo */}
             <div className="content-container">
-                <h2 className="text-title">Bem-vindo à BombinhaJS</h2>
+                <div className="text-title">
+                    <h2>Bem-vindo à BombinhaJS</h2>
+                </div>
                 <div className="wrap-input">
                     <input 
                         className={name !== "" ? "has-val input" : "input"} 
@@ -116,11 +118,18 @@ export const Home = () => {
                 <ul className="list-ul-form">
                     {users.map((user, index) => (
                         <li className="list-li-form" key={index}>
-                            <strong className="form-name">Nome: {user.name} </strong>
-                            <strong className="form-name">Email: {user.email}</strong>
-                            
-                            <button className="login-form-btn" onClick={() => editUser(user.id)}>Editar</button>
-                            <button className="login-form-btn" onClick={() => deleteUsers(user.id)}>Deletar</button>
+                            <div>
+                                <div>
+                                    <strong className="form-name">Nome: {user.name} </strong>
+                                </div>
+                                <div>
+                                    <strong className="form-name">Email: {user.email}</strong>
+                                </div>
+                            </div>
+                            <div className="login-form-moblie">
+                                <button className="login-form-btn" onClick={() => editUser(user.id)}>Editar</button>
+                                <button className="login-form-btn" onClick={() => deleteUsers(user.id)}>Deletar</button>
+                            </div>
                         </li>
                     ))}
                 </ul>
