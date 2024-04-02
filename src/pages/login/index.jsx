@@ -8,7 +8,7 @@ import greenForestVideo from "../../assets/green-forest.mp4";
 export function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [errorMessage, setErrorMessage] = useState(""); // Estado para armazenar mensagens de erro
+    const [errorMessage, setErrorMessage] = useState("");
     const navigate = useNavigate();
 
     function handleSignIn(e) {
@@ -18,9 +18,10 @@ export function Login() {
                 const user = userCredential.user;
                 console.log("Usuário logado:", user);
                 navigate("/home");
+                // Limpar estados de erro após login bem-sucedido
+                setErrorMessage("");
             })
             .catch((error) => {
-                // Verifica o código de erro retornado pelo Firebase Auth
                 switch (error.code) {
                     case "auth/invalid-email":
                         setErrorMessage("Email incorreto.");
@@ -72,7 +73,7 @@ export function Login() {
                             <span className="focus-input" data-placeholder="Password"></span>
                         </div>
 
-                        {errorMessage && <p className="error-message">{errorMessage}</p>} {/* Exibe mensagem de erro */}
+                        {errorMessage && <p className="error-message">{errorMessage}</p>}
 
                         <div className="container-login-form-btn">
                             <button className="login-form-btn" onClick={handleSignIn}>Login</button>

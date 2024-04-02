@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { getFirestore, getDocs, collection, addDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, getDocs, collection, addDoc, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword, updatePassword, updateEmail, deleteUser, sendEmailVerification } from "firebase/auth"; // Adicione sendEmailVerification
 import { app, auth } from "../../services/firebaseConfig";
-import { Link } from "react-router-dom"; // Importe o Link do React Router Dom
-import "./styles.css"; // Importe seu arquivo CSS para estilização
+import { Link } from "react-router-dom";
+import "./styles.css";
 import greenForestVideo from "../../assets/green-forest.mp4";
 
 export const Home = () => {
@@ -13,68 +13,84 @@ export const Home = () => {
     const [editMode, setEditMode] = useState(false);
     const [editedUserId, setEditedUserId] = useState(null);
     const [users, setUsers] = useState([]);
-    const [passwordError, setPasswordError] = useState(""); // Estado para armazenar mensagens de erro de senha
+    const [passwordError, setPasswordError] = useState("");
+    const [emailError, setEmailError] = useState("");
 
     const db = getFirestore(app);
     const userCollectionRef = collection(db, "users");
 
     async function criarUser() {
-        // Verifica se a senha está preenchida
-        if (!password) {
-            console.error("Senha não preenchida");
+        if (!password || !email) {
+            console.error("Email ou senha não preenchidos");
             return;
         }
 
-        // Verifica se a senha tem entre 8 e 14 caracteres
         if (password.length < 8 || password.length > 14) {
             setPasswordError("A senha deve ter entre 8 e 14 caracteres.");
             return;
         } else {
-            setPasswordError(""); // Limpa o erro de senha se estiver tudo correto
+            setPasswordError("");
         }
 
-        // Cria o usuário no Firestore
-        const user = await addDoc(userCollectionRef, {
-            name,
-            email,
-        });
-        console.log(user);
-
-        // Cria o usuário no Firebase Authentication
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
             console.log("Usuário criado no Firebase Authentication com sucesso!");
+            await addDoc(userCollectionRef, {
+                name,
+                email,
+                userId: user.uid
+            });
+            setName("");
+            setEmail("");
+            setPassword("");
+            getUsers();
+            // Envia e-mail de verificação para o novo usuário
+            await sendEmailVerification(user);
         } catch (error) {
-            console.error("Erro ao criar usuário no Firebase Authentication:", error);
+            console.error("Erro ao criar usuário:", error);
+            if (error.code === "auth/email-already-in-use") {
+                setEmailError("Email já está sendo usado por outra conta.");
+            } else {
+                setEmailError("Erro ao criar usuário. Por favor, tente novamente.");
+            }
         }
-
-        setName("");
-        setEmail("");
-        setPassword("");
-        window.location.reload(); // Recarrega a página após criar o usuário
     }
 
     useEffect(() => {
-        const getUsers = async () => {
-            try {
-                const querySnapshot = await getDocs(userCollectionRef);
-                const usersData = querySnapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
-                setUsers(usersData);
-            } catch (error) {
-                console.error("Erro ao buscar usuários:", error);
-            }
-        };
-
         getUsers();
     }, []);
 
+    async function getUsers() {
+        try {
+            const querySnapshot = await getDocs(userCollectionRef);
+            const usersData = querySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+            setUsers(usersData);
+        } catch (error) {
+            console.error("Erro ao buscar usuários:", error);
+        }
+    }
+
     async function deleteUsers(id) {
         const userDoc = doc(db, 'users', id);
+        const userData = await getDoc(userDoc);
+        const userId = userData.data().userId;
+
+        // Remove o usuário do Firebase Authentication
+        try {
+            const user = auth.currentUser; // Corrigido para usar currentUser
+            await deleteUser(user);
+            console.log("Usuário removido do Firebase Authentication com sucesso!");
+        } catch (error) {
+            console.error("Erro ao remover usuário do Firebase Authentication:", error);
+        }
+
+        // Remove o usuário do Firestore
         await deleteDoc(userDoc);
-        setUsers(users.filter(user => user.id !== id));
+        getUsers();
     }
 
     async function editUser(id) {
@@ -91,7 +107,26 @@ export const Home = () => {
         setEditMode(false);
         setName("");
         setEmail("");
-        window.location.reload(); // Recarrega a página após editar o usuário
+        getUsers();
+        if (password) {
+            const user = auth.currentUser;
+            await updatePassword(user, password);
+            console.log("Senha atualizada no Firebase Authentication com sucesso!");
+        }
+        if (email) {
+            const user = auth.currentUser;
+            
+            // Verifica se o novo e-mail foi verificado pelo usuário
+            const isEmailVerified = user.emailVerified;
+            
+            if (isEmailVerified) {
+                await updateEmail(user, email);
+                console.log("Email atualizado no Firebase Authentication com sucesso!");
+            } else {
+                console.error("Por favor, verifique seu novo e-mail antes de alterá-lo.");
+                // Aqui você pode notificar o usuário para verificar seu novo e-mail.
+            }
+        }
     }
 
     return (
@@ -133,6 +168,7 @@ export const Home = () => {
                     <span className="focus-input" data-placeholder="Password"></span>
                 </div>
                 {passwordError && <p className="error-message">{passwordError}</p>}
+                {emailError && <p className="error-message">{emailError}</p>}
                 {editMode ? (
                     <button className="login-form-btn form-btn" onClick={updateUser}>Salvar</button>
                 ) : (
@@ -161,3 +197,5 @@ export const Home = () => {
         </div>
     );
 };
+
+export default Home;
