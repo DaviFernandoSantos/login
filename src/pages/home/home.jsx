@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { getFirestore, getDocs, collection, addDoc, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword, updatePassword, updateEmail, deleteUser, sendEmailVerification } from "firebase/auth"; // Adicione sendEmailVerification
+import { createUserWithEmailAndPassword, updatePassword, updateEmail, deleteUser } from "firebase/auth";
 import { app, auth } from "../../services/firebaseConfig";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./styles.css";
 import greenForestVideo from "../../assets/green-forest.mp4";
 
@@ -13,8 +13,9 @@ export const Home = () => {
     const [editMode, setEditMode] = useState(false);
     const [editedUserId, setEditedUserId] = useState(null);
     const [users, setUsers] = useState([]);
-    const [passwordError, setPasswordError] = useState("");
-    const [emailError, setEmailError] = useState("");
+    const [feedback, setFeedback] = useState("");
+    const [feedbackType, setFeedbackType] = useState("");
+    const navigate = useNavigate();
 
     const db = getFirestore(app);
     const userCollectionRef = collection(db, "users");
@@ -28,14 +29,17 @@ export const Home = () => {
         if (password.length < 8 || password.length > 14) {
             setPasswordError("A senha deve ter entre 8 e 14 caracteres.");
             return;
-        } else {
-            setPasswordError("");
         }
 
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
-            console.log("Usuário criado no Firebase Authentication com sucesso!");
+            setFeedback("Usuário criado no Firebase Authentication com sucesso!");
+            setFeedbackType("success");
+            setTimeout(() => {
+                setFeedback("");
+                setFeedbackType("");
+            }, 3000);
             await addDoc(userCollectionRef, {
                 name,
                 email,
@@ -45,21 +49,77 @@ export const Home = () => {
             setEmail("");
             setPassword("");
             getUsers();
-            // Envia e-mail de verificação para o novo usuário
-            await sendEmailVerification(user);
         } catch (error) {
             console.error("Erro ao criar usuário:", error);
-            if (error.code === "auth/email-already-in-use") {
-                setEmailError("Email já está sendo usado por outra conta.");
-            } else {
-                setEmailError("Erro ao criar usuário. Por favor, tente novamente.");
-            }
+            setFeedback("Erro ao criar usuário. Por favor, tente novamente.");
+            setFeedbackType("error");
+            setTimeout(() => {
+                setFeedback("");
+                setFeedbackType("");
+            }, 3000);
         }
     }
 
-    useEffect(() => {
+    async function updatePasswordAndUser() {
+        const user = auth.currentUser;
+        if (user) {
+            try {
+                await auth.currentUser.getIdToken(true);
+                const userDoc = doc(db, 'users', editedUserId);
+                await updateDoc(userDoc, { name, email });
+                setEditMode(false);
+                setName("");
+                setEmail("");
+                getUsers();
+                if (password) {
+                    await updatePassword(user, password);
+                    setFeedback("Senha atualizada no Firebase Authentication com sucesso!");
+                    setFeedbackType("success");
+                    setTimeout(() => {
+                        setFeedback("");
+                        setFeedbackType("");
+                    }, 3000);
+                }
+                if (email) {
+                    try {
+                        await updateEmail(user, email);
+                        setFeedback("Email atualizado no Firebase Authentication com sucesso!");
+                        setFeedbackType("success");
+                        setTimeout(() => {
+                            setFeedback("");
+                            setFeedbackType("");
+                        }, 3000);
+                    } catch (error) {
+                        console.error("Erro ao atualizar o e-mail no Firebase Authentication:", error);
+                        setFeedback("Erro ao atualizar o e-mail. Por favor, tente novamente.");
+                        setFeedbackType("error");
+                        setTimeout(() => {
+                            setFeedback("");
+                            setFeedbackType("");
+                        }, 3000);
+                    }
+                }
+            } catch (error) {
+                console.error("Usuário não autenticado recentemente. Redirecionando para a página de login...");
+                navigate("/");
+            }
+        } else {
+            console.error("Nenhum usuário autenticado encontrado. Redirecionando para a página de login...");
+            navigate("/");
+        }
+    }
+
+    async function deleteUsers(id) {
+        const userDoc = doc(db, 'users', id);
+        await deleteDoc(userDoc);
         getUsers();
-    }, []);
+        setFeedback("Usuário deletado com sucesso!");
+        setFeedbackType("delete");
+        setTimeout(() => {
+            setFeedback("");
+            setFeedbackType("");
+        }, 3000);
+    }
 
     async function getUsers() {
         try {
@@ -74,59 +134,12 @@ export const Home = () => {
         }
     }
 
-    async function deleteUsers(id) {
-        const userDoc = doc(db, 'users', id);
-        const userData = await getDoc(userDoc);
-        const userId = userData.data().userId;
-
-        // Remove o usuário do Firebase Authentication
-        try {
-            const user = auth.currentUser; // Corrigido para usar currentUser
-            await deleteUser(user);
-            console.log("Usuário removido do Firebase Authentication com sucesso!");
-        } catch (error) {
-            console.error("Erro ao remover usuário do Firebase Authentication:", error);
-        }
-
-        // Remove o usuário do Firestore
-        await deleteDoc(userDoc);
-        getUsers();
-    }
-
     async function editUser(id) {
         const editedUser = users.find(user => user.id === id);
         setName(editedUser.name);
         setEmail(editedUser.email);
         setEditMode(true);
         setEditedUserId(id);
-    }
-
-    async function updateUser() {
-        const userDoc = doc(db, 'users', editedUserId);
-        await updateDoc(userDoc, { name, email });
-        setEditMode(false);
-        setName("");
-        setEmail("");
-        getUsers();
-        if (password) {
-            const user = auth.currentUser;
-            await updatePassword(user, password);
-            console.log("Senha atualizada no Firebase Authentication com sucesso!");
-        }
-        if (email) {
-            const user = auth.currentUser;
-            
-            // Verifica se o novo e-mail foi verificado pelo usuário
-            const isEmailVerified = user.emailVerified;
-            
-            if (isEmailVerified) {
-                await updateEmail(user, email);
-                console.log("Email atualizado no Firebase Authentication com sucesso!");
-            } else {
-                console.error("Por favor, verifique seu novo e-mail antes de alterá-lo.");
-                // Aqui você pode notificar o usuário para verificar seu novo e-mail.
-            }
-        }
     }
 
     return (
@@ -167,10 +180,11 @@ export const Home = () => {
                     />
                     <span className="focus-input" data-placeholder="Password"></span>
                 </div>
-                {passwordError && <p className="error-message">{passwordError}</p>}
-                {emailError && <p className="error-message">{emailError}</p>}
+                {(feedbackType === "error") && <p className="error-message">{feedback}</p>}
+                {(feedbackType === "success") && <div className="success-message">{feedback}</div>}
+                {(feedbackType === "delete") && <div className="delete-message">{feedback}</div>}
                 {editMode ? (
-                    <button className="login-form-btn form-btn" onClick={updateUser}>Salvar</button>
+                    <button className="login-form-btn form-btn" onClick={updatePasswordAndUser}>Salvar</button>
                 ) : (
                     <button className="login-form-btn form-btn" onClick={criarUser}>Criar User</button>
                 )}
@@ -193,6 +207,14 @@ export const Home = () => {
                         </li>
                     ))}
                 </ul>
+
+                {feedback && (
+                    <div className={`feedback-container ${feedbackType}`}>
+                        <div className="feedback-text">{feedback}</div>
+                        <button className="close-btn" onClick={() => setFeedback("")}>X</button>
+                        <div className="progress-bar"></div>
+                    </div>
+                )}
             </div>
         </div>
     );
