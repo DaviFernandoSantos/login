@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { getFirestore, getDocs, collection, addDoc, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword, updatePassword, updateEmail, deleteUser } from "firebase/auth";
+import { getFirestore, getDocs, collection, addDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword, updatePassword, updateEmail, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { app, auth } from "../../services/firebaseConfig";
 import { Link, useNavigate } from "react-router-dom";
 import "./styles.css";
@@ -20,14 +20,20 @@ export const Home = () => {
     const db = getFirestore(app);
     const userCollectionRef = collection(db, "users");
 
+    useEffect(() => {
+        getUsers();
+    }, []);
+
     async function criarUser() {
         if (!password || !email) {
-            console.error("Email ou senha não preenchidos");
+            setFeedback("Email ou senha não preenchidos");
+            setFeedbackType("error");
             return;
         }
 
         if (password.length < 8 || password.length > 14) {
-            setPasswordError("A senha deve ter entre 8 e 14 caracteres.");
+            setFeedback("A senha deve ter entre 8 e 14 caracteres.");
+            setFeedbackType("error");
             return;
         }
 
@@ -71,17 +77,41 @@ export const Home = () => {
                 setName("");
                 setEmail("");
                 getUsers();
-                if (password) {
-                    await updatePassword(user, password);
-                    setFeedback("Senha atualizada no Firebase Authentication com sucesso!");
-                    setFeedbackType("success");
+
+                if (password && (password.length < 8 || password.length > 14)) {
+                    setFeedback("A senha deve ter entre 8 e 14 caracteres.");
+                    setFeedbackType("error");
                     setTimeout(() => {
                         setFeedback("");
                         setFeedbackType("");
                     }, 3000);
+                    return;
                 }
+
+                if (password) {
+                    try {
+                        // Atualizar a senha
+                        await updatePassword(user, password);
+                        setFeedback("Senha atualizada no Firebase Authentication com sucesso!");
+                        setFeedbackType("success");
+                        setTimeout(() => {
+                            setFeedback("");
+                            setFeedbackType("");
+                        }, 3000);
+                    } catch (passwordError) {
+                        console.error("Erro ao atualizar a senha:", passwordError);
+                        setFeedback("Erro ao atualizar a senha. Por favor, tente novamente.");
+                        setFeedbackType("error");
+                        setTimeout(() => {
+                            setFeedback("");
+                            setFeedbackType("");
+                        }, 3000);
+                    }
+                }
+
                 if (email) {
                     try {
+                        // Atualizar o e-mail
                         await updateEmail(user, email);
                         setFeedback("Email atualizado no Firebase Authentication com sucesso!");
                         setFeedbackType("success");
@@ -89,8 +119,8 @@ export const Home = () => {
                             setFeedback("");
                             setFeedbackType("");
                         }, 3000);
-                    } catch (error) {
-                        console.error("Erro ao atualizar o e-mail no Firebase Authentication:", error);
+                    } catch (emailError) {
+                        console.error("Erro ao atualizar o e-mail no Firebase Authentication:", emailError);
                         setFeedback("Erro ao atualizar o e-mail. Por favor, tente novamente.");
                         setFeedbackType("error");
                         setTimeout(() => {
@@ -100,8 +130,13 @@ export const Home = () => {
                     }
                 }
             } catch (error) {
-                console.error("Usuário não autenticado recentemente. Redirecionando para a página de login...");
-                navigate("/");
+                console.error("Erro ao atualizar senha e usuário:", error);
+                setFeedback("Erro ao atualizar senha e usuário. Por favor, tente novamente.");
+                setFeedbackType("error");
+                setTimeout(() => {
+                    setFeedback("");
+                    setFeedbackType("");
+                }, 3000);
             }
         } else {
             console.error("Nenhum usuário autenticado encontrado. Redirecionando para a página de login...");
